@@ -49,19 +49,19 @@ spec:
         image: ghost:{{ .Values.image }}
         name: ghost
         volumeMounts:
-            - mountPath: /var/lib/ghost/content
-              name: {{.Values.service_name}}-ghost-data
+          - mountPath: /var/lib/ghost/content
+            name: {{.Values.service_name}}-ghost-data
         resources:
           limits:
             memory: "1024Mi"
           requests:
             memory: "256Mi"
-        volumes:
-        - name: {{.Values.service_name}}-ghost-data
-          hostPath:
-              # directory location on host
-              path: {{.Values.local_data_volume}}
-              # this field is optional
-              type: DirectoryOrCreate
+      volumes:
+      - name: {{.Values.service_name}}-ghost-data
+        hostPath:
+            # directory location on host
+            path: {{.Values.local_data_volume}}
+            # this field is optional
+            type: DirectoryOrCreate
       restartPolicy: Always
 ---
