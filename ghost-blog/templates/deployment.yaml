@@ -32,7 +32,7 @@ spec:
         - name: database__client
           value: "sqlite3"
         - name:  database__connection__filename
-          value: "content/data/ghost.db"
+          value: "/var/lib/ghost/content/data/ghost.db"
         - name: privacy__useTinFoil
           value: "true"
         - name: mail__transport
@@ -45,11 +45,13 @@ spec:
           value: "email-smtp.us-west-2.amazonaws.com"
         - name: mail__options__auth__user
           value: {{.Values.email_user}}
-        - name: mail__options__auth_pass
+        - name: mail__options__auth__pass
           valueFrom:
             secretKeyRef:
               name: {{ .Values.service_name }}-secrets
               key: mail_pass
+        - name: paths__contentPath
+          value: "/var/lib/ghost/content/"
         image: ghost:{{ .Values.image }}
         name: ghost
         volumeMounts:
