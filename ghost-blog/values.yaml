@@ -3,5 +3,6 @@ image:
 service_name:
 dns_entry:
 
+local_data_volume:
 email_user:
 email_password:

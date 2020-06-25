@@ -24,7 +24,7 @@ spec:
         - name: NODE_ENV
           value: "PRODUCTION"
         - name: url
-          value: {{.Values.dns_name}}
+          value: {{.Values.dns_entry}}
         - name: database__client
           value: "sqlite3"
         - name:  database__connection__filename
@@ -48,38 +48,20 @@ spec:
               key: mail_pass
         image: ghost:{{ .Values.image }}
         name: ghost
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 80
-            httpHeaders:
-              - name: Host
-                value: {{.Values.dns_entry}}
-              - name: X-Forwarded-Proto
-                value: https
-          initialDelaySeconds: 20
-          failureThreshold: 3
-          periodSeconds: 10
-          successThreshold: 1
-          timeoutSeconds: 2
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 80
-            httpHeaders:
-              - name: Host
-                value: {{.Values.dns_entry}}
-              - name: X-Forwarded-Proto
-                value: https
-          initialDelaySeconds: 20
-          failureThreshold: 3
-          periodSeconds: 10
-          successThreshold: 1
-          timeoutSeconds: 2
+        volumeMounts:
+            - mountPath: /var/lib/ghost/content
+              name: {{.Values.service_name}}-ghost-data
         resources:
           limits:
             memory: "1024Mi"
           requests:
             memory: "256Mi"
+        volumes:
+        - name: {{.Values.service_name}}-ghost-data
+          hostPath:
+              # directory location on host
+              path: {{.Values.local_data_volume}}
+              # this field is optional
+              type: DirectoryOrCreate
       restartPolicy: Always
 ---

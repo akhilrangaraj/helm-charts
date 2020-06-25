@@ -16,6 +16,12 @@ questions:
       type: string
       required: true
       group: "Deployment Settings"
+    - variable: local_data_volume
+      label: Data Volume
+      required: true
+      type: string
+      group: "Deployment Settings"
+
 
     #Secrets
     - variable: email_user
