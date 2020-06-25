@@ -1,0 +1,83 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.service_name}}-ghost
+  labels:
+    app: {{.Values.service_name}}-ghost
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.service_name}}-ghost
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+  template:
+    metadata:
+      labels:
+        app: {{.Values.service_name}}-ghost
+    spec:
+      containers:
+      - env:
+        - name: NODE_ENV
+          value: "PRODUCTION"
+        - name: url
+          value: {{.Values.dns_name}}
+        - name: database__client
+          value: "sqlite3"
+        - name: privacy__useTinFoil
+          value: "true"
+        - name: mail__transport
+          value: "SMTP"
+        - name: mail__options__port
+          value: "465"
+        - name: mail__options__service
+          value: "SES"
+        - name: mail__options__host
+          value: "email-smtp.us-west-2.amazonaws.com"
+        - name: mail__options__auth__user
+          value: {{.Values.email_user}}
+        - name: mail__options__auth_pass
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.service_name }}-secrets
+              key: mail_pass
+        image: ghost:{{ .Values.image }}
+        name: ghost
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+            httpHeaders:
+              - name: Host
+                value: {{.Values.dns_entry}}
+              - name: X-Forwarded-Proto
+                value: https
+          initialDelaySeconds: 20
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+            httpHeaders:
+              - name: Host
+                value: {{.Values.dns_entry}}
+              - name: X-Forwarded-Proto
+                value: https
+          initialDelaySeconds: 20
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        resources:
+          limits:
+            memory: "1024Mi"
+          requests:
+            memory: "256Mi"
+      restartPolicy: Always
+---

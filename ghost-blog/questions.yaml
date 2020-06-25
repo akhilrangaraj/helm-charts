@@ -1,0 +1,30 @@
+questions:
+    - variable: image
+      default: latest
+      description: "Tag for ghost image"
+      type: string
+      label: Ghost Tag
+      group: "Deployment Settings"
+    - variable: dns_entry
+      description: "dns entry"
+      label: Endpoint
+      type: string
+      required: true
+      group: "Deployment Settings"
+    - variable: service_name
+      label: "App Name"
+      type: string
+      required: true
+      group: "Deployment Settings"
+
+    #Secrets
+    - variable: email_user
+      label: "SES Email User"
+      type: string
+      required: true
+      group: "Secrets"
+    - variable: email_password
+      label: "SES Email Password"
+      type: "password"
+      required: true
+      group: "Secrets"
