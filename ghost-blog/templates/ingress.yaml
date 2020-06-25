@@ -19,4 +19,4 @@ spec:
       - path: /
         backend:
           serviceName: {{.Values.service_name}}-service
-          servicePort: 80
+          servicePort: 8080

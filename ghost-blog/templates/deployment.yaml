@@ -23,8 +23,12 @@ spec:
       - env:
         - name: NODE_ENV
           value: "PRODUCTION"
+        - name: server__host
+          value: "0.0.0.0"
+        - name: server__port
+          value: "8080"
         - name: url
-          value: {{.Values.dns_entry}}
+          value: "https://{{.Values.dns_entry}}"
         - name: database__client
           value: "sqlite3"
         - name:  database__connection__filename
