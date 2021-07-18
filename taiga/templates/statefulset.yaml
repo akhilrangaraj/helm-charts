@@ -1,0 +1,275 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  
+  selector:
+    matchLabels:
+      app: postgres
+
+  serviceName: postgres
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgres 
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: postgres
+          image: postgres:12
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          
+          env:
+            - name: POSTGRES_USER
+              value: {{.Values.pg_user}}
+
+            - name: POSTGRES_DB
+              value: {{.Values.pg_db}}
+            
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: postgres
+            
+              
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+              
+
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data/
+              name: postgres
+              subPath: postgres-db
+          
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres
+    spec:
+      accessModes: ["ReadWriteMany"]
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: nfs-client
+---
+apiVersion: apps/v1
+# See the Prerequisites section of https://www.rabbitmq.com/cluster-formation.html#peer-discovery-k8s.
+kind: StatefulSet
+metadata:
+  name: taiga-async-rabbitmq
+spec:
+  serviceName: taiga-async-rabbitmq
+  # Three nodes is the recommended minimum. Some features may require a majority of nodes
+  # to be available.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taiga-async-rabbitmq
+  template:
+    metadata:
+      labels:
+        app: taiga-async-rabbitmq
+    spec:
+      serviceAccountName: rabbitmq
+      terminationGracePeriodSeconds: 10
+      nodeSelector:
+        # Use Linux nodes in a mixed OS kubernetes cluster.
+        # Learn more at https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/#kubernetes-io-os
+        kubernetes.io/os: linux
+      containers:
+      - name: rabbitmq-k8s
+        image: rabbitmq:3.8
+        volumeMounts:
+          - name: config-volume
+            mountPath: /etc/rabbitmq
+        # Learn more about what ports various protocols use
+        # at https://www.rabbitmq.com/networking.html#ports
+        ports:
+          - name: http
+            protocol: TCP
+            containerPort: 15672
+          - name: amqp
+            protocol: TCP
+            containerPort: 5672
+        livenessProbe:
+          exec:
+            # This is just an example. There is no "one true health check" but rather
+            # several rabbitmq-diagnostics commands that can be combined to form increasingly comprehensive
+            # and intrusive health checks.
+            # Learn more at https://www.rabbitmq.com/monitoring.html#health-checks.
+            #
+            # Stage 2 check:
+            command: ["rabbitmq-diagnostics", "status"]
+          initialDelaySeconds: 60
+          # See https://www.rabbitmq.com/monitoring.html for monitoring frequency recommendations.
+          periodSeconds: 60
+          timeoutSeconds: 15
+        readinessProbe:
+          exec:
+            # This is just an example. There is no "one true health check" but rather
+            # several rabbitmq-diagnostics commands that can be combined to form increasingly comprehensive
+            # and intrusive health checks.
+            # Learn more at https://www.rabbitmq.com/monitoring.html#health-checks.
+            #
+            # Stage 1 check:
+            command: ["rabbitmq-diagnostics", "ping"]
+          initialDelaySeconds: 20
+          periodSeconds: 60
+          timeoutSeconds: 10
+        imagePullPolicy: Always
+        env:
+          - name: MY_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: MY_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: RABBITMQ_USE_LONGNAME
+            value: "true"
+
+          - name: RABBITMQ_ERLANG_COOKIE
+            value: "mycookie"
+          - name: RABBITMQ_DEFAULT_USER
+            value: {{.Values.rabbit_user}}
+          - name: RABBITMQ_DEFAULT_PASS
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: rabbitmq
+          - name: RABBITMQ_DEFAULT_VHOST
+            value: "taiga"
+      volumes:
+        - name: config-volume
+          configMap:
+            name: rabbitmq-config
+            items:
+            - key: rabbitmq.conf
+              path: rabbitmq.conf
+            - key: enabled_plugins
+              path: enabled_plugins
+
+---
+apiVersion: apps/v1
+# See the Prerequisites section of https://www.rabbitmq.com/cluster-formation.html#peer-discovery-k8s.
+kind: StatefulSet
+metadata:
+  name: taiga-events-rabbitmq
+spec:
+  serviceName: taiga-events-rabbitmq
+  # Three nodes is the recommended minimum. Some features may require a majority of nodes
+  # to be available.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taiga-events-rabbitmq
+  template:
+    metadata:
+      labels:
+        app: taiga-events-rabbitmq
+    spec:
+      serviceAccountName: rabbitmq
+      terminationGracePeriodSeconds: 10
+      nodeSelector:
+        # Use Linux nodes in a mixed OS kubernetes cluster.
+        # Learn more at https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/#kubernetes-io-os
+        kubernetes.io/os: linux
+      containers:
+      - name: rabbitmq-k8s
+        image: rabbitmq:3.8
+        volumeMounts:
+          - name: config-volume
+            mountPath: /etc/rabbitmq
+        # Learn more about what ports various protocols use
+        # at https://www.rabbitmq.com/networking.html#ports
+        ports:
+          - name: http
+            protocol: TCP
+            containerPort: 15672
+          - name: amqp
+            protocol: TCP
+            containerPort: 5672
+        livenessProbe:
+          exec:
+            # This is just an example. There is no "one true health check" but rather
+            # several rabbitmq-diagnostics commands that can be combined to form increasingly comprehensive
+            # and intrusive health checks.
+            # Learn more at https://www.rabbitmq.com/monitoring.html#health-checks.
+            #
+            # Stage 2 check:
+            command: ["rabbitmq-diagnostics", "status"]
+          initialDelaySeconds: 60
+          # See https://www.rabbitmq.com/monitoring.html for monitoring frequency recommendations.
+          periodSeconds: 60
+          timeoutSeconds: 15
+        readinessProbe:
+          exec:
+            # This is just an example. There is no "one true health check" but rather
+            # several rabbitmq-diagnostics commands that can be combined to form increasingly comprehensive
+            # and intrusive health checks.
+            # Learn more at https://www.rabbitmq.com/monitoring.html#health-checks.
+            #
+            # Stage 1 check:
+            command: ["rabbitmq-diagnostics", "ping"]
+          initialDelaySeconds: 20
+          periodSeconds: 60
+          timeoutSeconds: 10
+        imagePullPolicy: Always
+        env:
+          - name: MY_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: MY_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: RABBITMQ_USE_LONGNAME
+            value: "true"
+          # See a note on cluster_formation.k8s.address_type in the config file section
+          - name: RABBITMQ_ERLANG_COOKIE
+            value: "mycookie"
+          - name: RABBITMQ_DEFAULT_USER
+            value: {{.Values.rabbit_user}}
+          - name: RABBITMQ_DEFAULT_PASS
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: rabbitmq
+          - name: RABBITMQ_DEFAULT_VHOST
+            value: "taiga"
+
+      volumes:
+        - name: config-volume
+          configMap:
+            name: rabbitmq-config
+            items:
+            - key: rabbitmq.conf
+              path: rabbitmq.conf
+            - key: enabled_plugins
+              path: enabled_plugins

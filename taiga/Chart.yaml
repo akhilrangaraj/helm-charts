@@ -1,0 +1,8 @@
+apiVersion: v1
+name: taiga
+version: 1.0.0
+appVersion: 6.0.0
+home: https://github.com/kaleidos-ventures/taiga-docker
+icon: https://raw.githubusercontent.com/kaleidos-ventures/taiga-front/main/app/images/logo-color.png
+sources:
+  - https://github.com/akhilrangaraj/helm-charts

@@ -1,0 +1,287 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taiga-back
+  labels:
+    app: taiga-back
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taiga-back
+  template:
+    metadata:
+      labels:
+        app: taiga-back
+    spec:
+      volumes:
+        - name: taiga-static-data
+        - name: taiga-media-data
+      containers:
+      - name: taiga-back
+        image: taigaio/taiga-back:latest
+
+        volumeMounts:
+          - name: taiga-static-data
+            mountPath: /taiga-back/static
+          - name: taiga-media-data
+            mountPath: /taiga-back/media
+        env:
+          - name: POSTGRES_DB
+            value: {{.Values.pg_db}}
+          - name: POSTGRES_USER
+            value: {{.Values.pg_user}}
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                  key: password
+                  name: postgres
+          - name: POSTGRES_HOST
+            value: postgres
+          - name: POSTGRES_PORT
+            value: "5432"
+          - name: TAIGA_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                key: key
+                name: taiga-key
+          - name: TAIGA_SITES_DOMAIN
+            value: {{.Values.domain}}
+          - name: TAIGA_SITES_SCHEME
+            value: {{.Values.scheme}}
+          {{if .Values.email_enabled}}
+          - name: EMAIL_BACKEND
+            value: "django.core.mail.backends.smtp.EmailBackend"
+          - name: DEFAULT_FROM_EMAIL
+            value: {{.Values.email_from_address}}
+          - name: EMAIL_USE_TLS
+            value: {{.Values.email_use_tls | quote}}
+          - name: EMAIL_USE_SSL
+            value: {{.Values.email_use_ssl| quote}}
+          - name: EMAIL_HOST
+            value: {{.Values.email_host}}
+          - name: EMAIL_PORT
+            value: {{.Values.email_port | quote}}
+          - name: EMAIL_HOST_USER
+            value: {{.Values.email_host_user}}
+          - name: EMAIL_HOST_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: email
+          {{end}}
+          - name: ENABLE_TEMETRY
+            value: "False"
+          - name: RABBITMQ_USER
+            value: {{.Values.rabbit_user}}
+          - name: RABBITMQ_PASS
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: rabbitmq
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taiga-async
+  labels:
+    app: taiga-async
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taiga-async
+  template:
+    metadata:
+      labels:
+        app: taiga-async
+    spec:
+      volumes:
+      - name: taiga-static-data
+      - name: taiga-media-data
+      containers:
+      - name: taiga-async
+        image: taigaio/taiga-back:latest
+        command: ["/taiga-back/docker/async_entrypoint.sh"]
+        volumeMounts:
+          - name: taiga-static-data
+            mountPath: /taiga-back/static
+          - name: taiga-media-data
+            mountPath: /taiga-back/media
+        env:
+          - name: POSTGRES_DB
+            value: {{.Values.pg_db}}
+          - name: POSTGRES_USER
+            value: {{.Values.pg_user}}
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                  key: password
+                  name: postgres
+          - name: POSTGRES_HOST
+            value: postgres
+          - name: POSTGRES_PORT
+            value: "5432"
+          - name: TAIGA_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                key: key
+                name: taiga-key
+          - name: TAIGA_SITES_DOMAIN
+            value: {{.Values.domain}}
+          - name: TAIGA_SITES_SCHEME
+            value: {{.Values.scheme}}
+          {{if .Values.email_enabled}}
+          - name: EMAIL_BACKEND
+            value: "django.core.mail.backends.smtp.EmailBackend"
+          - name: DEFAULT_FROM_EMAIL
+            value: {{.Values.email_from_address}}
+          - name: EMAIL_USE_TLS
+            value: {{.Values.email_use_tls |quote }}
+          - name: EMAIL_USE_SSL
+            value: {{.Values.email_use_ssl| quote}}
+          - name: EMAIL_HOST
+            value: {{.Values.email_host}}
+          - name: EMAIL_PORT
+            value: {{.Values.email_port | quote}}
+          - name: EMAIL_HOST_USER
+            value: {{.Values.email_host_user}}
+          - name: EMAIL_HOST_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: email
+          {{end}}
+          - name: ENABLE_TEMETRY
+            value: "False"
+          - name: RABBITMQ_USER
+            value: {{.Values.rabbit_user}}
+          - name: RABBITMQ_PASS
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: rabbitmq
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taiga-front
+  labels:
+    app: taiga-front
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taiga-front
+  template:
+    metadata:
+      labels:
+        app: taiga-front
+    spec:
+      containers:
+      - name: taiga-front
+        image: taigaio/taiga-front:latest
+
+        env:
+          - name: TAIGA_URL
+            value: "{{.Values.scheme}}://{{.Values.domain}}"
+          - name: TAIGA_WEBSOCKETS_URL
+            value: "wss://{{.Values.domain}}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taiga-events
+  labels:
+    app: taiga-events
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taiga-events
+  template:
+    metadata:
+      labels:
+        app: taiga-events
+    spec:
+      containers:
+      - name: taiga-events
+        image: taigaio/taiga-events:latest
+
+        env:
+          - name: RABBITMQ_USER
+            value: {{.Values.rabbit_user}}
+          - name: RABBITMQ_PASS
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: rabbitmq
+          - name: TAIGA_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                key: key
+                name: taiga-key
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taiga-protected
+  labels:
+    app: taiga-protected
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taiga-protected
+  template:
+    metadata:
+      labels:
+        app: taiga-protected
+    spec:
+      containers:
+      - name: taiga-protected
+        image: taigaio/taiga-protected:latest
+        env:
+          - name: MAX_AGE
+            value: "360"
+          - name: SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                key: key
+                name: taiga-key
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taiga-gateway
+  labels:
+    app: taiga-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taiga-gateway
+  template:
+    metadata:
+      labels:
+        app: taiga-gateway
+    spec:
+      containers:
+      - name: taiga-gateway
+        image: nginx:1.19-alpine
+        volumeMounts:
+          - name: config-volume
+            mountPath: /etc/nginx/conf.d
+          - name: taiga-static-data
+            mountPath: /taiga/static
+          - name: taiga-media-data
+            mountPath: /taiga/mediia
+      volumes:
+      - name: config-volume
+        configMap:
+          name:  taiga-gateway-config
+          items:
+          - key: default.conf
+            path: default.conf
+      - name: taiga-static-data
+      - name: taiga-media-data

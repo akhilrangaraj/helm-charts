@@ -1,0 +1,142 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: postgres
+  name: postgres
+spec:
+  type: ClusterIP
+  ports:
+  - name: postgres
+    port: 5432
+    protocol: TCP
+    targetPort: 5432
+  selector:
+    app: postgres
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: taiga-async-rabbitmq
+  labels:
+    app: taiga-async-rabbitmq
+    type: LoadBalancer
+spec:
+  type: ClusterIP
+  ports:
+   - name: http
+     protocol: TCP
+     port: 15672
+     targetPort: 15672
+   - name: amqp
+     protocol: TCP
+     port: 5672
+     targetPort: 5672
+  selector:
+    app: taiga-async-rabbitmq
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: taiga-events-rabbitmq
+  labels:
+    app: taiga-events-rabbitmq
+    type: LoadBalancer
+spec:
+  type: ClusterIP
+  ports:
+   - name: http
+     protocol: TCP
+     port: 15672
+     targetPort: 15672
+   - name: amqp
+     protocol: TCP
+     port: 5672
+     targetPort: 5672
+  selector:
+    app: taiga-events-rabbitmq
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: taiga-back
+  labels:
+    app: taiga-back
+    type: LoadBalancer
+spec:
+  type: ClusterIP
+  ports:
+   - name: http
+     protocol: TCP
+     port: 8000
+     targetPort: 8000
+  selector:
+    app: taiga-back
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: taiga-front
+  labels:
+    app: taiga-front
+    type: LoadBalancer
+spec:
+  type: ClusterIP
+  ports:
+   - name: http
+     protocol: TCP
+     port: 80
+     targetPort: 80
+  selector:
+    app: taiga-front
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: taiga-protected
+  labels:
+    app: taiga-protected
+    type: LoadBalancer
+spec:
+  type: ClusterIP
+  ports:
+   - name: http
+     protocol: TCP
+     port: 8003
+     targetPort: 8003
+  selector:
+    app: taiga-protected
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: taiga-events
+  labels:
+    app: taiga-events
+    type: LoadBalancer
+spec:
+  type: ClusterIP
+  ports:
+   - name: http
+     protocol: TCP
+     port: 8888
+     targetPort: 8888
+  selector:
+    app: taiga-events
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: taiga-gateway
+  labels:
+    app: taiga-gateway
+    type: LoadBalancer
+spec:
+  type: ClusterIP
+  ports:
+   - name: http
+     protocol: TCP
+     port: 80
+     targetPort: 80
+  selector:
+    app: taiga-gateway

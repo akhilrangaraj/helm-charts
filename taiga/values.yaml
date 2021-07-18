@@ -1,0 +1,25 @@
+---
+domain:
+scheme: https
+ingress_class: traefik
+
+taiga_secret: taiga-back-secret
+
+#email
+email_enabled: false
+email_from_address:
+email_use_tls: false
+email_use_ssl: false
+email_host:
+email_port: 567
+email_host_user:
+email_password:
+
+#rabbit
+rabbit_user: taiga
+rabbit_password: taiga
+
+#pg
+pg_db: taiga
+pg_user: taiga
+postgres_pass: taiga
