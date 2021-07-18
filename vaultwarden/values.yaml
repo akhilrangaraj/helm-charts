@@ -1,0 +1,10 @@
+---
+service_name:
+dns_entry:
+ingress_class: traefik
+
+use_smtp: false
+smtp_host:
+smtp_from:
+smtp_username:
+sendgrid_token:

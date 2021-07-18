@@ -1,0 +1,9 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{.Values.service_name}}-service
+spec:
+  selector:
+    app: {{.Values.service_name}}-warden
+  ports:
+    - port: 80

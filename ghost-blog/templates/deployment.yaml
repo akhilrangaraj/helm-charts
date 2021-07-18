@@ -64,10 +64,7 @@ spec:
             memory: "256Mi"
       volumes:
       - name: {{.Values.service_name}}-ghost-data
-        hostPath:
-            # directory location on host
-            path: {{.Values.local_data_volume}}
-            # this field is optional
-            type: DirectoryOrCreate
+        persistentVolumeClaim:
+          claimName: ghost-claim
       restartPolicy: Always
 ---
