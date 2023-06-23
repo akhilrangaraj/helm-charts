@@ -1,0 +1,559 @@
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.service_name}}-keydb
+  labels:
+    app: {{.Values.service_name}}-keydb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.service_name}}-keydb
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+  template:
+    metadata:
+      labels:
+        app: {{.Values.service_name}}-keydb
+    spec:
+      containers:
+      - image: eqalpha/keydb:latest
+        name: keydb
+        resources:
+          limits:
+            memory: "2048Mi"
+          requests:
+            memory: "512Mi"
+      restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.service_name}}-minio
+  labels:
+    app: {{.Values.service_name}}-minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.service_name}}-minio
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+  template:
+    metadata:
+      labels:
+        app: {{.Values.service_name}}-minio
+    spec:
+      containers:
+      - image: minio/minio:latest
+        name: minio
+        args:  ["server", "/data"]
+
+        env:
+          - name: MINIO_ROOT_USER
+            value: {{.Values.minio_username | quote}}
+          - name: MINIO_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: minio_password
+          - name: AWS_ACCESS_KEY_ID
+            value: {{.Values.minio_username | quote}}
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: minio_password
+        volumeMounts:
+          - mountPath: /data
+            name: {{.Values.service_name}}-minio-data
+        resources:
+          requests:
+            memory: "512Mi"
+      volumes:
+      - name: {{.Values.service_name}}-minio-data
+        persistentVolumeClaim:
+          claimName: minio-claim
+      restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.service_name}}-autumn
+  labels:
+    app: {{.Values.service_name}}-autumn
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.service_name}}-autumn
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+  template:
+    metadata:
+      labels:
+        app: {{.Values.service_name}}-autumn
+    spec:
+      initContainers:
+      - name: init-myservice
+        image: minio/mc
+        env:
+        - name: MINIO_ROOT_USER
+          value: {{.Values.minio_username | quote}}
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.service_name }}-secrets
+              key: minio_password
+        command: ['sh', '-c']
+        args:
+          - >- 
+            while ! curl -s --output /dev/null --connect-timeout 1 http://minio:9000; do echo 'Waiting minio...' && sleep 0.1; done;
+            /usr/bin/mc alias set minio http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD;
+            /usr/bin/mc mb minio/attachments;
+            /usr/bin/mc mb minio/avatars;
+            /usr/bin/mc mb minio/backgrounds;
+            /usr/bin/mc mb minio/icons;
+            /usr/bin/mc mb minio/banners;
+            /usr/bin/mc mb minio/emojis;
+            exit 0;
+      containers:
+      - image: ghcr.io/revoltchat/autumn:1.1.10
+        name: autumn
+        env:
+          - name: AUTUMN_MONGO_URI
+            value: mongodb://{{.Values.service_name}}-mongo-service
+          - name: AUTUMN_S3_REGION
+            value: minio
+          - name: AUTUMN_S3_ENDPOINT
+            value: http://minio:9000
+          - name: AWS_ACCESS_KEY_ID
+            value: {{.Values.minio_username | quote}}
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: minio_password
+        volumeMounts:
+          - mountPath: /data/minio
+            name: {{.Values.service_name}}-minio-data
+        resources:
+          requests:
+            memory: "512Mi"
+      volumes:
+      - name: {{.Values.service_name}}-minio-data
+        persistentVolumeClaim:
+          claimName: minio-claim
+      restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.service_name}}-january
+  labels:
+    app: {{.Values.service_name}}-january
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.service_name}}-january
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+  template:
+    metadata:
+      labels:
+        app: {{.Values.service_name}}-january
+    spec:
+      containers:
+      - image: ghcr.io/revoltchat/january:master
+        name: january
+        resources:
+          requests:
+            memory: "512Mi"
+      restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.service_name}}-web
+  labels:
+    app: {{.Values.service_name}}-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.service_name}}-web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+  template:
+    metadata:
+      labels:
+        app: {{.Values.service_name}}-web
+    spec:
+      containers:
+      - image: ghcr.io/revoltchat/client:master
+        name: web
+        env:
+          - name: MONGODB
+            value: mongodb://{{.Values.service_name}}-mongo-service
+          - name: REDIS_URI
+            value: redis://redis/
+          - name: HOSTNAME
+            value: {{.Values.hostname}}
+          - name: REVOLT_APP_URL
+            value: {{.Values.app_url}}
+          - name: REVOLT_PUBLIC_URL
+            value: {{.Values.api_url}}
+          - name: VITE_API_URL
+            value: {{.Values.api_url}}
+          - name: REVOLT_EXTERNAL_WS_URL
+            value: {{.Values.ws_url}}
+          - name: AUTUMN_PUBLIC_URL
+            value: {{.Values.autumn_url}}
+          - name: JANUARY_PUBLIC_URL
+            value: {{.Values.january_url}}
+          - name: REVOLT_UNSAFE_NO_CAPTCHA
+            value: "1"
+          {{if .Values.voso_token}}
+          - name: VOSO_MANAGE_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: voso_token
+          - name: VOSO_PUBLIC_URL
+            value: {{.Values.voso_public_url}}
+          - name: VOSO_WS_HOST
+            value: {{.Values.voso_ws_host}}
+          {{end}}
+          {{if .Values.email}}
+          - name: REVOLT_UNSAFE_NO_EMAIL
+            value: "0"
+          - name: REVOLT_SMTP_HOST
+            value: {{.Values.smtp_host}}
+          - name: REVOLT_SMTP_USERNAME
+            value: {{.Values.smtp_username}}
+          - name: REVOLT_SMTP_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: mail_pass
+          - name: REVOLT_SMTP_FROM
+            value: {{.Values.smtp_from | quote}}
+          {{else}}
+          - name: REVOLT_UNSAFE_NO_EMAIL
+            value: "1"
+          {{end}}
+          - name: REVOLT_INVITE_ONLY
+            value: {{.Values.invite_only | quote}}
+          - name: REVOLT_MAX_GROUP_SIZE
+            value: {{.Values.max_group_size| quote}}
+          - name: REVOLT_VAPID_PRIVATE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: vapid_priv_key
+          - name: REVOLT_VAPID_PUBLIC_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: vapid_pub_key
+        resources:
+          requests:
+            memory: "512Mi"
+      restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.service_name}}-bonfire
+  labels:
+    app: {{.Values.service_name}}-bonfire
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.service_name}}-bonfire
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+  template:
+    metadata:
+      labels:
+        app: {{.Values.service_name}}-bonfire
+    spec:
+      containers:
+      - image: ghcr.io/revoltchat/bonfire:20230421-3
+        name: bonfire
+        env:
+          - name: MONGODB
+            value: mongodb://{{.Values.service_name}}-mongo-service
+          - name: REDIS_URI
+            value: redis://redis/
+          - name: HOSTNAME
+            value: {{.Values.hostname}}
+          - name: REVOLT_APP_URL
+            value: {{.Values.app_url}}
+          - name: REVOLT_PUBLIC_URL
+            value: {{.Values.api_url}}
+          - name: VITE_API_URL
+            value: {{.Values.api_url}}
+          - name: REVOLT_EXTERNAL_WS_URL
+            value: {{.Values.ws_url}}
+          - name: AUTUMN_PUBLIC_URL
+            value: {{.Values.autumn_url}}
+          - name: JANUARY_PUBLIC_URL
+            value: {{.Values.january_url}}
+          - name: REVOLT_UNSAFE_NO_CAPTCHA
+            value: "1"
+          {{if .Values.voso_token}}
+          - name: VOSO_MANAGE_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: voso_token
+          - name: VOSO_PUBLIC_URL
+            value: {{.Values.voso_public_url}}
+          - name: VOSO_WS_HOST
+            value: {{.Values.voso_ws_host}}
+          {{end}}
+          {{if .Values.email}}
+          - name: REVOLT_UNSAFE_NO_EMAIL
+            value: "0"
+          - name: REVOLT_SMTP_HOST
+            value: {{.Values.smtp_host}}
+          - name: REVOLT_SMTP_USERNAME
+            value: {{.Values.smtp_username}}
+          - name: REVOLT_SMTP_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: mail_pass
+          - name: REVOLT_SMTP_FROM
+            value: {{.Values.smtp_from | quote}}
+          {{else}}
+          - name: REVOLT_UNSAFE_NO_EMAIL
+            value: "1"
+          {{end}}
+          - name: REVOLT_INVITE_ONLY
+            value: {{.Values.invite_only | quote}}
+          - name: REVOLT_MAX_GROUP_SIZE
+            value: {{.Values.max_group_size| quote}}
+          - name: REVOLT_VAPID_PRIVATE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: vapid_priv_key
+          - name: REVOLT_VAPID_PUBLIC_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: vapid_pub_key
+        resources:
+          requests:
+            memory: "512Mi"
+      restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.service_name}}-api
+  labels:
+    app: {{.Values.service_name}}-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.service_name}}-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+  template:
+    metadata:
+      labels:
+        app: {{.Values.service_name}}-api
+    spec:
+      containers:
+      - image: ghcr.io/revoltchat/server:20230421-3
+        name: api
+        env:
+          - name: MONGODB
+            value: mongodb://{{.Values.service_name}}-mongo-service
+          - name: REDIS_URI
+            value: redis://redis/
+          - name: HOSTNAME
+            value: {{.Values.hostname}}
+          - name: REVOLT_APP_URL
+            value: {{.Values.app_url}}
+          - name: REVOLT_PUBLIC_URL
+            value: {{.Values.api_url}}
+          - name: VITE_API_URL
+            value: {{.Values.api_url}}
+          - name: REVOLT_EXTERNAL_WS_URL
+            value: {{.Values.ws_url}}
+          - name: AUTUMN_PUBLIC_URL
+            value: {{.Values.autumn_url}}
+          - name: JANUARY_PUBLIC_URL
+            value: {{.Values.january_url}}
+          - name: REVOLT_UNSAFE_NO_CAPTCHA
+            value: "1"
+          {{if .Values.voso_token}}
+          - name: VOSO_MANAGE_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: voso_token
+          - name: VOSO_PUBLIC_URL
+            value: {{.Values.voso_public_url}}
+          - name: VOSO_WS_HOST
+            value: {{.Values.voso_ws_host}}
+          {{end}}
+          {{if .Values.email}}
+          - name: REVOLT_UNSAFE_NO_EMAIL
+            value: "0"
+          - name: REVOLT_SMTP_HOST
+            value: {{.Values.smtp_host}}
+          - name: REVOLT_SMTP_USERNAME
+            value: {{.Values.smtp_username}}
+          - name: REVOLT_SMTP_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: mail_pass
+          - name: REVOLT_SMTP_FROM
+            value: {{.Values.smtp_from | quote}}
+          {{else}}
+          - name: REVOLT_UNSAFE_NO_EMAIL
+            value: "1"
+          {{end}}
+          - name: REVOLT_INVITE_ONLY
+            value: {{.Values.invite_only | quote}}
+          - name: REVOLT_MAX_GROUP_SIZE
+            value: {{.Values.max_group_size| quote}}
+          - name: REVOLT_VAPID_PRIVATE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: vapid_priv_key
+          - name: REVOLT_VAPID_PUBLIC_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: vapid_pub_key
+        resources:
+          requests:
+            memory: "512Mi"
+      restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.service_name}}-caddy
+  labels:
+    app: {{.Values.service_name}}-caddy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.service_name}}-caddy
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+  template:
+    metadata:
+      labels:
+        app: {{.Values.service_name}}-caddy
+    spec:
+      containers:
+      - image: caddy
+        name: caddy
+        env:
+          - name: MONGODB
+            value: mongodb://{{.Values.service_name}}-mongo-service
+          - name: REDIS_URI
+            value: redis://redis/
+          - name: HOSTNAME
+            value: {{.Values.hostname}}
+          - name: REVOLT_APP_URL
+            value: {{.Values.app_url}}
+          - name: REVOLT_PUBLIC_URL
+            value: {{.Values.api_url}}
+          - name: VITE_API_URL
+            value: {{.Values.api_url}}
+          - name: REVOLT_EXTERNAL_WS_URL
+            value: {{.Values.ws_url}}
+          - name: AUTUMN_PUBLIC_URL
+            value: {{.Values.autumn_url}}
+          - name: JANUARY_PUBLIC_URL
+            value: {{.Values.january_url}}
+          - name: REVOLT_UNSAFE_NO_CAPTCHA
+            value: "1"
+          {{if .Values.email}}
+          - name: REVOLT_UNSAFE_NO_EMAIL
+            value: "0"
+          - name: REVOLT_SMTP_HOST
+            value: {{.Values.smtp_host}}
+          - name: REVOLT_SMTP_USERNAME
+            value: {{.Values.smtp_username}}
+          - name: REVOLT_SMTP_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: mail_pass
+          - name: REVOLT_SMTP_FROM
+            value: {{.Values.smtp_from | quote}}
+          {{else}}
+          - name: REVOLT_UNSAFE_NO_EMAIL
+            value: "1"
+          {{end}}
+          - name: REVOLT_INVITE_ONLY
+            value: {{.Values.invite_only | quote}}
+          - name: REVOLT_MAX_GROUP_SIZE
+            value: {{.Values.max_group_size| quote}}
+          - name: REVOLT_VAPID_PRIVATE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: vapid_priv_key
+          - name: REVOLT_VAPID_PUBLIC_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.service_name }}-secrets
+                key: vapid_pub_key
+        volumeMounts:
+          - mountPath: /etc/caddy/Caddyfile
+            name: {{.Values.service_name}}-caddy-cfm
+            subPath: Caddyfile
+            readOnly: true
+          - mountPath: /data
+            name: {{.Values.service_name}}-caddy-data
+          - mountPath: /config
+            name: {{.Values.service_name}}-caddy-config
+        resources:
+          requests:
+            memory: "512Mi"
+      volumes:
+      - name: {{.Values.service_name}}-caddy-data
+        persistentVolumeClaim:
+          claimName: caddy-data-claim
+      - name: {{.Values.service_name}}-caddy-config
+        persistentVolumeClaim:
+          claimName: caddy-config-claim
+      - name: {{.Values.service_name}}-caddy-cfm
+        configMap:
+          name: {{.Values.service_name}}-caddy-configmap
+      restartPolicy: Always

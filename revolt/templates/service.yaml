@@ -1,0 +1,89 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{.Values.service_name}}-mongo-service
+spec:
+  selector:
+    app: {{.Values.service_name}}-mongodb
+  ports:
+    - port: 27017
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: redis
+spec:
+  selector:
+    app: {{.Values.service_name}}-keydb
+  ports:
+    - port: 6379
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: minio
+spec:
+  selector:
+    app: {{.Values.service_name}}-minio
+  ports:
+    - port: 9000
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: caddy
+spec:
+  selector:
+    app: {{.Values.service_name}}-caddy
+  ports:
+    - port: 80
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: api
+spec:
+  selector:
+    app: {{.Values.service_name}}-api
+  ports:
+    - port: 8000
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: events
+spec:
+  selector:
+    app: {{.Values.service_name}}-bonfire
+  ports:
+    - port: 9000
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: autumn
+spec:
+  selector:
+    app: {{.Values.service_name}}-autumn
+  ports:
+    - port: 3000
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: january
+spec:
+  selector:
+    app: {{.Values.service_name}}-january
+  ports:
+    - port: 7000
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: web
+spec:
+  selector:
+    app: {{.Values.service_name}}-web
+  ports:
+    - port: 5000

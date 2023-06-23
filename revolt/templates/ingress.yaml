@@ -4,9 +4,8 @@ metadata:
     name: {{.Values.service_name}}-ingress
     annotations:
       kubernetes.io/ingress.class: {{.Values.ingress_class}}
-      #ingress.kubernetes.io/rewrite-target: /
       nginx.ingress.kubernetes.io/proxy-body-size: "100m"
-      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      cert-manager.io/cluster-issuer: {{.Values.cert_issuer}}
 spec:
   tls:
   - hosts:
@@ -20,6 +19,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: {{.Values.service_name}}-service
+            name: caddy
             port:
               number: 80

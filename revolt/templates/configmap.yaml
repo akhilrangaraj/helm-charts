@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Values.service_name}}-caddy-configmap
+data:
+    Caddyfile: |
+        {{- (.Files.Glob "files/Caddyfile").AsConfig | nindent 4 }}

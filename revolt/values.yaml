@@ -1,0 +1,35 @@
+---
+service_name:
+ingress_class: traefik
+cert_issuer: letsencrypt-prod
+
+#minio
+minio_username: miniouser123
+minio_password: miniopassword345
+
+#app
+hostname: http://local.revolt.chat
+app_url: http://local.revolt.chat
+api_url: http://local.revolt.chat/api
+ws_url: ws://local.revolt.chat/ws
+autumn_url: http://local.revolt.chat/autumn
+january_url: http://local.revolt.chat/january
+
+invite_only: 1
+max_group_size: 150
+vapid_priv_key:
+vapid_pub_key:
+
+email: false
+smtp_host:
+smtp_from:
+smtp_username:
+sendgrid_token:
+
+#mongo
+mongo_image: mongo:latest
+
+#voso
+voso_token:
+voso_public_url:
+voso_ws_host:
